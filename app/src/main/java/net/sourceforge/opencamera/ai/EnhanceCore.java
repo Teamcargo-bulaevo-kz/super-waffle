@@ -262,6 +262,28 @@ public final class EnhanceCore {
         return true;
     }
 
+    /** over = base + strength * (over - base), in place on over. Images must be the same size. */
+    public static void blend(PixelImage base, PixelImage over, float strength) {
+        if( strength >= 1.0f )
+            return;
+        int width = over.getWidth(), height = over.getHeight();
+        if( base.getWidth() != width || base.getHeight() != height )
+            throw new IllegalArgumentException("size mismatch");
+        int[] a = new int[width], b = new int[width];
+        for(int y=0;y<height;y++) {
+            base.getPixels(a, 0, width, 0, y, width, 1);
+            over.getPixels(b, 0, width, 0, y, width, 1);
+            for(int x=0;x<width;x++) {
+                int pa = a[x], pb = b[x];
+                int r = clamp255(((pa >> 16) & 0xff) + strength*(((pb >> 16) & 0xff) - ((pa >> 16) & 0xff)));
+                int g = clamp255(((pa >> 8) & 0xff) + strength*(((pb >> 8) & 0xff) - ((pa >> 8) & 0xff)));
+                int bl = clamp255((pa & 0xff) + strength*((pb & 0xff) - (pa & 0xff)));
+                b[x] = (pa & 0xff000000) | (r << 16) | (g << 8) | bl;
+            }
+            over.setPixels(b, 0, width, 0, y, width, 1);
+        }
+    }
+
     static int toByte(float v) {
         int i = (int)(v*255.0f + 0.5f);
         return i < 0 ? 0 : (Math.min(i, 255));

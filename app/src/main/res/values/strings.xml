@@ -1165,4 +1165,7 @@
     <string name="ai_enhance_failed_load">Could not open the image</string>
     <string name="ai_enhance_note">The original photo is not changed; the result is saved as a new photo in Pictures/NeuroCam. AI detail generates plausible texture, which may differ from reality. Real-ESRGAN © Xintao Wang, BSD-3-Clause.</string>
     <string name="ai_detail_short">detail</string>
+    <string name="ai_enhance_quality">Maximum detail quality (slower)</string>
+    <string name="preference_ai_detail_quality_summary">Off: fast mode, about 2.5x quicker with a nearly identical look. On: the network sees more of the original pixels.</string>
+    <string name="ai_enhance_progress_eta">AI is working: %1$d%% (%2$d s, ~%3$d s left)</string>
 </resources>

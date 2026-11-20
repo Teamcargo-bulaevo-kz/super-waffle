@@ -60,13 +60,18 @@ public class NeuroEnhancer {
     public static final String PREF_GPU = "preference_ai_gpu";
     public static final String PREF_DETAIL = "preference_ai_detail";
     public static final String PREF_WHITE_BALANCE = "preference_ai_white_balance";
+    public static final String PREF_DETAIL_QUALITY = "preference_ai_detail_quality";
 
     static final String RESTORE_MODEL_ASSET = "neurocam_enhance.tflite";
     static final String DETAIL_MODEL_ASSET = "realesr_general_x4v3.tflite";
     /** Context margin for each tile of the restoration net; must cover its receptive field (~35 px). */
     static final int RESTORE_MARGIN = 24;
-    /** Context margin (in low resolution pixels) for the Real-ESRGAN tiles (receptive field ~69 px). */
-    static final int DETAIL_MARGIN = 24;
+    /** Context margin (in low resolution pixels) for the Real-ESRGAN tiles. The receptive field is
+     *  ~69 px but contributions decay quickly: with 256 px tiles a 16 px margin is indistinguishable
+     *  (57 dB) from processing the whole image at once, and avoids wasting work on overlaps. */
+    static final int DETAIL_MARGIN = 16;
+    /** Fast AI detail is only used for photos with at least this many pixels. */
+    static final long FAST_DETAIL_MIN_PIXELS = 6_000_000L;
 
     private static NeuroEnhancer instance;
 
@@ -92,6 +97,8 @@ public class NeuroEnhancer {
         public boolean gpu = true;
         public boolean detail = false;
         public boolean whiteBalance = true;
+        /** AI detail: true = maximum quality (input downscaled 2x), false = fast (3x, ~2.4x quicker). */
+        public boolean detailQuality = false;
         /** Optional progress callback (called on the processing thread), 0..1. */
         public ProgressCallback progress;
 
@@ -103,6 +110,7 @@ public class NeuroEnhancer {
             o.gpu = sp.getBoolean(PREF_GPU, true);
             o.detail = sp.getBoolean(PREF_DETAIL, false);
             o.whiteBalance = sp.getBoolean(PREF_WHITE_BALANCE, true);
+            o.detailQuality = sp.getBoolean(PREF_DETAIL_QUALITY, false);
             return o;
         }
     }
@@ -233,7 +241,7 @@ public class NeuroEnhancer {
         };
         if( options.detail ) {
             try {
-                out = runDetail(src, options.gpu, options.strength, tileProgress);
+                out = runDetail(src, options.gpu, options.strength, options.detailQuality, tileProgress);
                 result.neuralApplied = true;
                 result.detailApplied = true;
                 result.usedGpu = detailModel.usesGpu;
@@ -302,21 +310,24 @@ public class NeuroEnhancer {
         return out;
     }
 
-    /** Generative detail: downscale 2x, Real-ESRGAN 4x, fused 2x box downscale back to the original size. */
-    private Bitmap runDetail(Bitmap src, boolean useGpu, float strength, EnhanceCore.ProgressListener listener) throws IOException {
+    /**
+     * Generative detail. Quality mode: downscale 2x, Real-ESRGAN 4x, fused 2x box downscale back to
+     * the original size. Fast mode: downscale 3x, Real-ESRGAN 4x, fused 2x box downscale (giving 2/3
+     * of the original size), then a bilinear upscale; 2.25x fewer network pixels, visually close.
+     */
+    private Bitmap runDetail(Bitmap src, boolean useGpu, float strength, boolean quality, EnhanceCore.ProgressListener listener) throws IOException {
         detailModel.ensure(useGpu);
         final int w = src.getWidth(), h = src.getHeight();
-        final int lw = Math.max(1, w / 2), lh = Math.max(1, h / 2);
+        // fast mode only pays off on large photos, where pixel level detail is redundant anyway;
+        // smaller images always use the quality path so the network sees enough pixels
+        final int factor = (quality || (long)w*h < FAST_DETAIL_MIN_PIXELS) ? 2 : 3;
+        final int lw = Math.max(1, w / factor), lh = Math.max(1, h / factor);
+        final float blendStrength = Math.min(1.0f, 0.25f + strength);
         Bitmap lr = Bitmap.createScaledBitmap(src, lw, lh, true);
         Bitmap out = Bitmap.createBitmap(lw*2, lh*2, Bitmap.Config.ARGB_8888);
         try {
-            Bitmap orig = src;
-            if( w != lw*2 || h != lh*2 )
-                orig = Bitmap.createBitmap(src, 0, 0, lw*2, lh*2); // odd sizes: crop by 1px for the blend
             EnhanceCore.runTiledSR(new BitmapImage(lr), new BitmapImage(out), detailModel, 4, 2, DETAIL_MARGIN,
-                    new BitmapImage(orig), Math.min(1.0f, 0.25f + strength), listener);
-            if( orig != src )
-                orig.recycle();
+                    null, 1.0f, listener);
         }
         catch(RuntimeException e) {
             out.recycle();
@@ -332,6 +343,7 @@ public class NeuroEnhancer {
             out.recycle();
             out = scaled;
         }
+        EnhanceCore.blend(new BitmapImage(src), new BitmapImage(out), blendStrength);
         return out;
     }
 
@@ -342,7 +354,11 @@ public class NeuroEnhancer {
 
     /** Runs only the generative detail stage (full strength) - used by tests. */
     public Bitmap detailOnly(final Bitmap src, final boolean useGpu) throws Exception {
-        return executor.submit(() -> runDetail(src, useGpu, 1.0f, null)).get(10, TimeUnit.MINUTES);
+        return detailOnly(src, useGpu, true);
+    }
+
+    public Bitmap detailOnly(final Bitmap src, final boolean useGpu, final boolean quality) throws Exception {
+        return executor.submit(() -> runDetail(src, useGpu, 1.0f, quality, null)).get(10, TimeUnit.MINUTES);
     }
 
     /** Whether the restoration interpreter runs on the GPU (valid after an enhancement). */

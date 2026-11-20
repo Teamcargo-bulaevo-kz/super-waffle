@@ -1002,4 +1002,7 @@
     <string name="ai_enhance_failed_load">Не удалось открыть изображение</string>
     <string name="ai_enhance_note">Оригинал не изменяется, результат сохраняется новым фото в Pictures/NeuroCam. ИИ-детализация дорисовывает правдоподобную текстуру, которая может отличаться от реальности. Real-ESRGAN © Xintao Wang, BSD-3-Clause.</string>
     <string name="ai_detail_short">детализация</string>
+    <string name="ai_enhance_quality">Максимальное качество детализации (медленнее)</string>
+    <string name="preference_ai_detail_quality_summary">Выкл: быстрый режим, примерно в 2,5 раза быстрее, на вид почти так же. Вкл: нейросеть получает больше исходных пикселей.</string>
+    <string name="ai_enhance_progress_eta">ИИ работает: %1$d%% (%2$d с, осталось ~%3$d с)</string>
 </resources>

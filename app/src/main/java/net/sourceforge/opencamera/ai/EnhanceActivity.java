@@ -72,6 +72,7 @@ public class EnhanceActivity extends Activity {
     private ProgressBar progressBar;
     private CheckBox detailCheck;
     private CheckBox wbCheck;
+    private CheckBox qualityCheck;
     private Button enhanceButton;
     private Button shareButton;
     private Button compareButton;
@@ -169,6 +170,13 @@ public class EnhanceActivity extends Activity {
         detailCheck.setText(R.string.ai_enhance_detail);
         detailCheck.setTextColor(Color.WHITE);
         root.addView(detailCheck);
+
+        qualityCheck = new CheckBox(this);
+        qualityCheck.setText(R.string.ai_enhance_quality);
+        qualityCheck.setTextColor(Color.WHITE);
+        qualityCheck.setChecked(android.preference.PreferenceManager.getDefaultSharedPreferences(this).getBoolean(NeuroEnhancer.PREF_DETAIL_QUALITY, false));
+        root.addView(qualityCheck);
+        detailCheck.setOnCheckedChangeListener((b, checked) -> qualityCheck.setEnabled(checked));
 
         wbCheck = new CheckBox(this);
         wbCheck.setText(R.string.preference_ai_white_balance);
@@ -305,6 +313,7 @@ public class EnhanceActivity extends Activity {
         enhanceButton.setEnabled(false);
         detailCheck.setEnabled(false);
         wbCheck.setEnabled(false);
+        qualityCheck.setEnabled(false);
         progressBar.setProgress(0);
         progressBar.setVisibility(View.VISIBLE);
         statusView.setText(R.string.ai_enhance_processing);
@@ -313,11 +322,20 @@ public class EnhanceActivity extends Activity {
         final NeuroEnhancer.Options options = NeuroEnhancer.Options.fromPreferences(this);
         options.detail = detailCheck.isChecked();
         options.whiteBalance = wbCheck.isChecked();
+        options.detailQuality = qualityCheck.isChecked();
+        android.preference.PreferenceManager.getDefaultSharedPreferences(this).edit()
+                .putBoolean(NeuroEnhancer.PREF_DETAIL_QUALITY, options.detailQuality).apply();
         final long start = System.currentTimeMillis();
         options.progress = fraction -> runOnUiThread(() -> {
             progressBar.setProgress((int)(fraction*1000));
             long elapsed = (System.currentTimeMillis() - start) / 1000;
-            statusView.setText(getString(R.string.ai_enhance_progress, (int)(fraction*100), elapsed));
+            if( fraction > 0.1f && fraction < 1.0f ) {
+                long remaining = (long)(elapsed * (1.0f - fraction) / fraction);
+                statusView.setText(getString(R.string.ai_enhance_progress_eta, (int)(fraction*100), elapsed, remaining));
+            }
+            else {
+                statusView.setText(getString(R.string.ai_enhance_progress, (int)(fraction*100), elapsed));
+            }
         });
         final Bitmap src = sourceBitmap;
         new Thread(() -> {
@@ -349,6 +367,7 @@ public class EnhanceActivity extends Activity {
             enhanceButton.setEnabled(true);
             detailCheck.setEnabled(true);
             wbCheck.setEnabled(true);
+            qualityCheck.setEnabled(detailCheck.isChecked());
             return;
         }
         resultBitmap = result.bitmap;

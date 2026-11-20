@@ -242,4 +242,22 @@ public class NeuroCamInstrumentedTest {
         assertEquals(512, o.outWidth);
         assertEquals(512, o.outHeight);
     }
+    @Test
+    public void testG_FastDetailLargePhoto() throws Exception {
+        // a 6.5 MP photo uses the fast detail path (3x downscale)
+        Bitmap clean = loadTestImage();
+        Bitmap large = Bitmap.createScaledBitmap(clean, 2560, 2560, true);
+        NeuroEnhancer enhancer = NeuroEnhancer.getInstance(ApplicationProvider.getApplicationContext());
+        long t0 = System.currentTimeMillis();
+        Bitmap out = enhancer.detailOnly(large, true, false);
+        long time = System.currentTimeMillis() - t0;
+        Log.i(TAG, "AI_RESULT fast detail 2560x2560 time=" + time + "ms");
+        assertEquals(2560, out.getWidth());
+        assertEquals(2560, out.getHeight());
+        // result must still look like the input (no corruption from tiling / rescaling)
+        Bitmap back = Bitmap.createScaledBitmap(out, 512, 512, true);
+        double p = psnr(back, clean);
+        Log.i(TAG, "AI_RESULT fast detail psnr vs original (at 512px)=" + p);
+        assertTrue("fast detail result differs too much from the original: " + p, p > 26.0);
+    }
 }

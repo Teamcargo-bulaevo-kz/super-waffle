@@ -299,4 +299,17 @@ public class EnhanceCoreTest {
         for(float v : g)
             assertEquals(1.0f, v, 0.01f);
     }
+    @Test
+    public void blendMixesImages() {
+        EnhanceCore.IntImage base = new EnhanceCore.IntImage(3, 2);
+        EnhanceCore.IntImage over = new EnhanceCore.IntImage(3, 2);
+        java.util.Arrays.fill(base.data, 0xff000000 | (100 << 16) | (100 << 8) | 100);
+        java.util.Arrays.fill(over.data, 0xff000000 | (200 << 16) | (0 << 8) | 150);
+        EnhanceCore.blend(base, over, 0.5f);
+        assertEquals(0xff000000 | (150 << 16) | (50 << 8) | 125, over.data[4]);
+        EnhanceCore.IntImage over2 = new EnhanceCore.IntImage(3, 2);
+        java.util.Arrays.fill(over2.data, 0xff112233);
+        EnhanceCore.blend(base, over2, 1.0f);
+        assertEquals(0xff112233, over2.data[0]);
+    }
 }
