@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">Open Camera</string>
+    <string name="app_name">NeuroCam</string>
     <string name="action_settings">Настройки</string>
     <string name="action_popup">Настройки всплывающих окон</string>
     <string name="intro_ok">Ок (Это сообщение больше не появится)</string>
@@ -961,4 +961,15 @@
     <string name="preference_audio_control_noise">Громкий шум</string>
     <string name="preference_audio_control_voice">Голосовая команда: \"cheese\"</string> <!-- note that cheese shouldn't be translated, as we listen for this no matter what language is being used -->
 
+    <string name="preference_category_ai">ИИ-обработка фото</string>
+    <string name="preference_ai_enhance">ИИ-улучшение фото</string>
+    <string name="preference_ai_enhance_summary">Нейросеть на устройстве убирает шум, артефакты сжатия и размытие, затем применяет тон и цвет под сцену. Обработка идёт в фоне после каждого снимка.</string>
+    <string name="preference_ai_strength">Сила ИИ-обработки</string>
+    <string name="preference_ai_scene">ИИ-распознавание сцены</string>
+    <string name="preference_ai_scene_summary">Определять сцену (портрет, еда, пейзаж, природа, ночь, документ) для настройки обработки.</string>
+    <string name="preference_ai_gpu">ИИ на GPU</string>
+    <string name="preference_ai_gpu_summary">Запускать нейросеть на графическом процессоре (намного быстрее). Если не поддерживается — автоматически на CPU.</string>
+    <string name="preference_ai_strength_low">Низкая (естественно)</string>
+    <string name="preference_ai_strength_medium">Средняя</string>
+    <string name="preference_ai_strength_high">Высокая (максимум деталей)</string>
 </resources>

@@ -9,18 +9,37 @@ android {
     }
 
     defaultConfig {
-        applicationId "net.sourceforge.opencamera"
+        applicationId "kz.superwaffle.neurocam"
+        versionCode 1
+        versionName "1.0-ai (based on Open Camera 1.56.2)"
         minSdkVersion 23
         targetSdkVersion 36
         //compileSdkVersion 31 // needed to support appcompat:1.4.0 (which we need for emoji policy support, and not yet ready to target SDK 30)
 
-        testApplicationId "net.sourceforge.opencamera.test"
+        testApplicationId "kz.superwaffle.neurocam.test"
         //testInstrumentationRunner "android.test.InstrumentationTestRunner"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        neurocam {
+            storeFile file('signing.keystore')
+            storePassword 'android'
+            keyAlias 'neurocam'
+            keyPassword 'android'
+        }
+    }
+
+    androidResources {
+        noCompress 'tflite'
+    }
+
     buildTypes {
+        debug {
+            signingConfig signingConfigs.neurocam
+        }
         release {
+            signingConfig signingConfigs.neurocam
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.txt'
         }
@@ -55,6 +74,13 @@ dependencies {
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
 
     implementation 'androidx.exifinterface:exifinterface:1.4.2'
+
+    // NeuroCam AI: LiteRT (TensorFlow Lite) runtime + GPU delegate for the enhancement network,
+    // and ML Kit on-device image labelling (bundled model) for scene recognition
+    implementation 'com.google.ai.edge.litert:litert:1.4.0'
+    implementation 'com.google.ai.edge.litert:litert-gpu:1.4.0'
+    implementation 'com.google.ai.edge.litert:litert-gpu-api:1.4.0'
+    implementation 'com.google.mlkit:image-labeling:17.0.9'
 
     testImplementation 'junit:junit:4.13.2'
 

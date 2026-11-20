@@ -16,6 +16,9 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import net.sourceforge.opencamera.ai.EnhanceCore;
+import net.sourceforge.opencamera.ai.NeuroEnhancer;
+
 import java.io.IOException;
 
 /** Methods to apply post processing to resultant images.
@@ -506,6 +509,38 @@ public class PostProcessing {
         return bitmap;
     }
 
+    /** Runs the NeuroCam AI pipeline (scene recognition, neural restoration, tone) if enabled.
+     */
+    private Bitmap aiEnhance(final ImageSaver.Request request, byte[] data, Bitmap bitmap) throws IOException {
+        if( !NeuroEnhancer.isEnabled(main_activity) )
+            return bitmap;
+        if( request.process_type == ImageSaver.Request.ProcessType.PANORAMA )
+            return bitmap; // panoramas are very large and already blended
+        if( bitmap == null && request.jpeg_images != null && request.jpeg_images.size() > 1 )
+            return bitmap; // individual frames of a burst / bracketing: don't slow these down
+        boolean loaded_here = false;
+        if( bitmap == null ) {
+            bitmap = ImageUtils.loadBitmapWithRotation(data, true);
+            if( bitmap == null ) {
+                System.gc();
+                throw new IOException();
+            }
+            loaded_here = true;
+        }
+        NeuroEnhancer.Result result = NeuroEnhancer.getInstance(main_activity).enhance(bitmap, request.iso > 0 ? request.iso : -1);
+        if( result.bitmap != null && result.bitmap != bitmap ) {
+            // only free the bitmap if we own it: a bitmap passed in may still be used by the caller
+            if( loaded_here )
+                bitmap.recycle();
+            bitmap = result.bitmap;
+        }
+        lastAiScene = result.scene;
+        return bitmap;
+    }
+
+    /** Scene detected for the most recently enhanced photo, or null. */
+    volatile EnhanceCore.Scene lastAiScene;
+
     static class PostProcessBitmapResult {
         final Bitmap bitmap;
 
@@ -538,6 +573,10 @@ public class PostProcessing {
         }
         if( request.mirror ) {
             bitmap = mirrorImage(data, bitmap);
+        }
+        bitmap = aiEnhance(request, data, bitmap);
+        if( MyDebug.LOG ) {
+            Log.d(TAG, "Save single image performance: time after AI enhance: " + (System.currentTimeMillis() - time_s));
         }
         if( request.image_format != ImageSaver.Request.ImageFormat.STD && bitmap == null ) {
             if( MyDebug.LOG )

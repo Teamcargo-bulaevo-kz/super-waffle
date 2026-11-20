@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">Open Camera</string> <!-- shouldn't be translated, unless deemed appropriate e.g. alternative alphabets -->
+    <string name="app_name">NeuroCam</string> <!-- shouldn't be translated, unless deemed appropriate e.g. alternative alphabets -->
     <string name="action_settings">Settings</string>
     <string name="action_popup">Popup settings</string>
     <string name="intro_ok">OK (This message won\'t show again)</string>
@@ -1114,4 +1114,25 @@
             <li>Various other improvements and bug fixes.\n</li>
         </ul>
     </string>
+    <string name="preference_category_ai">AI photo enhancement</string>
+    <string name="preference_ai_enhance">AI enhance photos</string>
+    <string name="preference_ai_enhance_summary">On-device neural network removes noise, compression artefacts and blur, then applies scene-aware tone and colour. Processing is done in the background after each shot.</string>
+    <string name="preference_ai_strength">AI strength</string>
+    <string name="preference_ai_scene">AI scene recognition</string>
+    <string name="preference_ai_scene_summary">Recognise the scene (portrait, food, landscape, nature, night, documents) to tune processing.</string>
+    <string name="preference_ai_gpu">Use GPU for AI</string>
+    <string name="preference_ai_gpu_summary">Run the neural network on the GPU (much faster). Falls back to the CPU automatically if unsupported.</string>
+    <string-array name="preference_ai_strength_entries" translatable="false">
+        <item>@string/preference_ai_strength_low</item>
+        <item>@string/preference_ai_strength_medium</item>
+        <item>@string/preference_ai_strength_high</item>
+    </string-array>
+    <string name="preference_ai_strength_low">Low (natural)</string>
+    <string name="preference_ai_strength_medium">Medium</string>
+    <string name="preference_ai_strength_high">High (maximum detail)</string>
+    <string-array name="preference_ai_strength_values" translatable="false">
+        <item>low</item>
+        <item>medium</item>
+        <item>high</item>
+    </string-array>
 </resources>

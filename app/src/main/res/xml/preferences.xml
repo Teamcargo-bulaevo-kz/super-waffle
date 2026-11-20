@@ -1,5 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <PreferenceCategory
+        android:key="preference_category_ai"
+        android:title="@string/preference_category_ai">
+
+        <SwitchPreference
+            android:key="preference_ai_enhance"
+            android:title="@string/preference_ai_enhance"
+            android:summary="@string/preference_ai_enhance_summary"
+            android:defaultValue="true"
+            />
+
+        <ListPreference
+            android:key="preference_ai_strength"
+            android:title="@string/preference_ai_strength"
+            android:summary="%s"
+            android:entries="@array/preference_ai_strength_entries"
+            android:entryValues="@array/preference_ai_strength_values"
+            android:defaultValue="medium"
+            android:dependency="preference_ai_enhance"
+            />
+
+        <SwitchPreference
+            android:key="preference_ai_scene"
+            android:title="@string/preference_ai_scene"
+            android:summary="@string/preference_ai_scene_summary"
+            android:defaultValue="true"
+            android:dependency="preference_ai_enhance"
+            />
+
+        <SwitchPreference
+            android:key="preference_ai_gpu"
+            android:title="@string/preference_ai_gpu"
+            android:summary="@string/preference_ai_gpu_summary"
+            android:defaultValue="true"
+            android:dependency="preference_ai_enhance"
+            />
+
+    </PreferenceCategory>
     
     <!--<PreferenceCategory
         android:key="preference_category_camera_effects"
