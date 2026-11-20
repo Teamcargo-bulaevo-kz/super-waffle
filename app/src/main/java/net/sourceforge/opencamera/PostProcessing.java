@@ -535,7 +535,32 @@ public class PostProcessing {
             bitmap = result.bitmap;
         }
         lastAiScene = result.scene;
+        showAiToast(result);
         return bitmap;
+    }
+
+    private void showAiToast(final NeuroEnhancer.Result result) {
+        final String scene;
+        switch( result.scene ) {
+            case PORTRAIT: scene = main_activity.getString(R.string.ai_scene_portrait); break;
+            case FOOD: scene = main_activity.getString(R.string.ai_scene_food); break;
+            case LANDSCAPE: scene = main_activity.getString(R.string.ai_scene_landscape); break;
+            case NATURE: scene = main_activity.getString(R.string.ai_scene_nature); break;
+            case NIGHT: scene = main_activity.getString(R.string.ai_scene_night); break;
+            case DOCUMENT: scene = main_activity.getString(R.string.ai_scene_document); break;
+            default: scene = main_activity.getString(R.string.ai_scene_general); break;
+        }
+        final String message = "AI \u2728 " + scene + (result.neuralApplied ? "" : " (" + main_activity.getString(R.string.ai_tone_only) + ")")
+                + String.format(java.util.Locale.US, " \u00b7 %.1f s", result.timeMs / 1000.0);
+        try {
+            main_activity.runOnUiThread(() -> {
+                if( main_activity.getPreview() != null )
+                    main_activity.getPreview().showToast(null, message, true);
+            });
+        }
+        catch(Exception e) {
+            Log.e(TAG, "failed to show AI toast", e);
+        }
     }
 
     /** Scene detected for the most recently enhanced photo, or null. */

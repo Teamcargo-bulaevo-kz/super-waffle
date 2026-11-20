@@ -972,4 +972,12 @@
     <string name="preference_ai_strength_low">Низкая (естественно)</string>
     <string name="preference_ai_strength_medium">Средняя</string>
     <string name="preference_ai_strength_high">Высокая (максимум деталей)</string>
+    <string name="ai_scene_general">Авто</string>
+    <string name="ai_scene_portrait">Портрет</string>
+    <string name="ai_scene_food">Еда</string>
+    <string name="ai_scene_landscape">Пейзаж</string>
+    <string name="ai_scene_nature">Природа</string>
+    <string name="ai_scene_night">Ночь</string>
+    <string name="ai_scene_document">Документ</string>
+    <string name="ai_tone_only">только тон</string>
 </resources>

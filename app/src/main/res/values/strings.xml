@@ -1135,4 +1135,12 @@
         <item>medium</item>
         <item>high</item>
     </string-array>
+    <string name="ai_scene_general">Auto</string>
+    <string name="ai_scene_portrait">Portrait</string>
+    <string name="ai_scene_food">Food</string>
+    <string name="ai_scene_landscape">Landscape</string>
+    <string name="ai_scene_nature">Nature</string>
+    <string name="ai_scene_night">Night</string>
+    <string name="ai_scene_document">Document</string>
+    <string name="ai_tone_only">tone only</string>
 </resources>
