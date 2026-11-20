@@ -168,6 +168,100 @@ public final class EnhanceCore {
         return true;
     }
 
+    /**
+     * Runs a super resolution model (output tile = scale * input tile) over a low resolution image
+     * and writes the result box-downsampled by {@code down} into dst, so the full size
+     * super-resolved image never has to be held in memory. dst must be
+     * (lr.width * scale / down) x (lr.height * scale / down).
+     *
+     * <p>If {@code original} is non-null (same size as dst) the result is blended with it:
+     * out = original + strength * (sr - original).</p>
+     */
+    public static boolean runTiledSR(PixelImage lr, PixelImage dst, TileModel model, int scale, int down, int margin,
+                                     PixelImage original, float strength, ProgressListener listener) {
+        final int width = lr.getWidth();
+        final int height = lr.getHeight();
+        final int tile = model.getTileSize();
+        final int step = tile - 2*margin;
+        if( step <= 0 )
+            throw new IllegalArgumentException("margin too large for tile size");
+        if( (step*scale) % down != 0 || scale % down != 0 )
+            throw new IllegalArgumentException("scale must be divisible by down");
+        final int f = scale / down; // dst pixels per lr pixel
+        if( dst.getWidth() != width*f || dst.getHeight() != height*f )
+            throw new IllegalArgumentException("dst size mismatch");
+        if( original != null && (original.getWidth() != dst.getWidth() || original.getHeight() != dst.getHeight()) )
+            throw new IllegalArgumentException("original size mismatch");
+        strength = Math.max(0.0f, Math.min(1.0f, strength));
+        final int outTile = tile*scale;
+        final int total = countTiles(width, height, tile, margin);
+        final float[] in = new float[tile*tile*3];
+        final float[] out = new float[outTile*outTile*3];
+        final int dstStep = step*f;
+        final int[] outRow = new int[dstStep];
+        final int[] origRow = new int[dstStep];
+        final int[] strip = new int[tile*width];
+        final int[] rowBuf = new int[width];
+        final float inv255 = 1.0f/255.0f;
+        final float norm = 1.0f/(down*down);
+        int done = 0;
+        for(int ty=0;ty<height;ty+=step) {
+            for(int r=0;r<tile;r++) {
+                lr.getPixels(rowBuf, 0, width, 0, reflect(ty - margin + r, height), width, 1);
+                System.arraycopy(rowBuf, 0, strip, r*width, width);
+            }
+            final int th = Math.min(step, height - ty);
+            for(int tx=0;tx<width;tx+=step) {
+                final int tw = Math.min(step, width - tx);
+                int k = 0;
+                for(int r=0;r<tile;r++) {
+                    final int rowOff = r*width;
+                    for(int c=0;c<tile;c++) {
+                        int p = strip[rowOff + reflect(tx - margin + c, width)];
+                        in[k++] = ((p >> 16) & 0xff) * inv255;
+                        in[k++] = ((p >> 8) & 0xff) * inv255;
+                        in[k++] = (p & 0xff) * inv255;
+                    }
+                }
+                model.run(in, out);
+                final int dh = th*f, dw = tw*f;
+                final int dx0 = tx*f, dy0 = ty*f;
+                for(int r=0;r<dh;r++) {
+                    if( original != null )
+                        original.getPixels(origRow, 0, dstStep, dx0, dy0 + r, dw, 1);
+                    for(int c=0;c<dw;c++) {
+                        float sr = 0, sg = 0, sb = 0;
+                        final int oy0 = margin*scale + r*down;
+                        final int ox0 = margin*scale + c*down;
+                        for(int yy=0;yy<down;yy++) {
+                            int base = ((oy0 + yy)*outTile + ox0)*3;
+                            for(int xx=0;xx<down;xx++) {
+                                sr += out[base]; sg += out[base+1]; sb += out[base+2];
+                                base += 3;
+                            }
+                        }
+                        sr *= norm; sg *= norm; sb *= norm;
+                        int alpha = 0xff000000;
+                        if( original != null ) {
+                            int o = origRow[c];
+                            alpha = o & 0xff000000;
+                            float or = ((o >> 16) & 0xff)*inv255, og = ((o >> 8) & 0xff)*inv255, ob = (o & 0xff)*inv255;
+                            sr = or + strength*(sr - or);
+                            sg = og + strength*(sg - og);
+                            sb = ob + strength*(sb - ob);
+                        }
+                        outRow[c] = alpha | (toByte(sr) << 16) | (toByte(sg) << 8) | toByte(sb);
+                    }
+                    dst.setPixels(outRow, 0, dstStep, dx0, dy0 + r, dw, 1);
+                }
+                done++;
+                if( listener != null && !listener.onProgress(done, total) )
+                    return false;
+            }
+        }
+        return true;
+    }
+
     static int toByte(float v) {
         int i = (int)(v*255.0f + 0.5f);
         return i < 0 ? 0 : (Math.min(i, 255));
@@ -192,6 +286,8 @@ public final class EnhanceCore {
         public float vibrance = 0.15f;
         /** Shadow lift (0..1), useful for night shots. */
         public float shadows = 0.0f;
+        /** How much of the estimated colour cast to remove (0 = keep, 1 = fully neutral). */
+        public float whiteBalance = 0.5f;
         /** Amount to protect skin tones from saturation changes (0..1). */
         public float skinProtect = 0.0f;
 
@@ -199,22 +295,22 @@ public final class EnhanceCore {
             ToneParams p = new ToneParams();
             switch( scene ) {
                 case PORTRAIT:
-                    p.levels = 0.5f; p.contrast = 0.08f; p.vibrance = 0.08f; p.skinProtect = 1.0f;
+                    p.levels = 0.5f; p.contrast = 0.08f; p.vibrance = 0.08f; p.skinProtect = 1.0f; p.whiteBalance = 0.4f;
                     break;
                 case FOOD:
-                    p.levels = 0.6f; p.contrast = 0.15f; p.vibrance = 0.28f; p.skinProtect = 0.0f;
+                    p.levels = 0.6f; p.contrast = 0.15f; p.vibrance = 0.28f; p.skinProtect = 0.0f; p.whiteBalance = 0.25f; // keep appetising warmth
                     break;
                 case LANDSCAPE:
-                    p.levels = 0.7f; p.contrast = 0.2f; p.vibrance = 0.25f;
+                    p.levels = 0.7f; p.contrast = 0.2f; p.vibrance = 0.25f; p.whiteBalance = 0.25f; // don't kill sunsets
                     break;
                 case NATURE:
-                    p.levels = 0.6f; p.contrast = 0.15f; p.vibrance = 0.22f;
+                    p.levels = 0.6f; p.contrast = 0.15f; p.vibrance = 0.22f; p.whiteBalance = 0.35f; // dominant greens bias grey world
                     break;
                 case NIGHT:
                     p.levels = 0.35f; p.contrast = 0.05f; p.vibrance = 0.05f; p.shadows = 0.25f;
                     break;
                 case DOCUMENT:
-                    p.levels = 0.9f; p.contrast = 0.3f; p.vibrance = -0.1f;
+                    p.levels = 0.9f; p.contrast = 0.3f; p.vibrance = -0.1f; p.whiteBalance = 0.8f; // paper should be white
                     break;
                 case GENERAL:
                 default:
@@ -225,6 +321,7 @@ public final class EnhanceCore {
             p.contrast *= strength;
             p.vibrance *= strength;
             p.shadows *= strength;
+            p.whiteBalance = Math.min(1.0f, p.whiteBalance * strength);
             return p;
         }
     }
@@ -232,26 +329,38 @@ public final class EnhanceCore {
     /** Lookup table built from image statistics, applied per pixel. */
     public static final class ToneMapper {
         final int[] lut = new int[256];
+        final int[] lutR = new int[256], lutG = new int[256], lutB = new int[256];
+        final float[] gains;
         final ToneParams params;
 
-        ToneMapper(ToneParams params, int[] lut) {
+        ToneMapper(ToneParams params, int[] lut, float[] gains) {
             this.params = params;
+            this.gains = gains.clone();
             System.arraycopy(lut, 0, this.lut, 0, 256);
+            for(int i=0;i<256;i++) {
+                lutR[i] = lut[Math.min(255, (int)(i*gains[0] + 0.5f))];
+                lutG[i] = lut[Math.min(255, (int)(i*gains[1] + 0.5f))];
+                lutB[i] = lut[Math.min(255, (int)(i*gains[2] + 0.5f))];
+            }
         }
 
         public int[] getLut() {
             return lut.clone();
         }
 
-        /** Applies the tone curve and vibrance to ARGB pixels in place. */
+        public float[] getGains() {
+            return gains.clone();
+        }
+
+        /** Applies white balance, the tone curve and vibrance to ARGB pixels in place. */
         public void apply(int[] pixels, int offset, int count) {
             final float vib = params.vibrance;
             final float skin = params.skinProtect;
             for(int i=offset;i<offset+count;i++) {
                 int p = pixels[i];
-                int r = lut[(p >> 16) & 0xff];
-                int g = lut[(p >> 8) & 0xff];
-                int b = lut[p & 0xff];
+                int r = lutR[(p >> 16) & 0xff];
+                int g = lutG[(p >> 8) & 0xff];
+                int b = lutB[p & 0xff];
                 if( vib != 0.0f ) {
                     int max = Math.max(r, Math.max(g, b));
                     int min = Math.min(r, Math.min(g, b));
@@ -273,6 +382,54 @@ public final class EnhanceCore {
         }
     }
 
+    /**
+     * Estimates per channel gains that remove part of the colour cast (e.g. the yellow/orange of
+     * incandescent lamps), using a grey-world estimate over mid-tone, non clipped pixels.
+     * Gains are limited and normalised so that luminance is preserved.
+     * @param amount 0 = no correction, 1 = full grey world
+     */
+    public static float[] estimateWhiteBalanceGains(PixelImage image, int sampleStep, float amount) {
+        float[] none = {1.0f, 1.0f, 1.0f};
+        if( amount <= 0.0f )
+            return none;
+        int width = image.getWidth(), height = image.getHeight();
+        int[] row = new int[width];
+        sampleStep = Math.max(1, sampleStep);
+        double sr = 0, sg = 0, sb = 0;
+        long n = 0;
+        for(int y=0;y<height;y+=sampleStep) {
+            image.getPixels(row, 0, width, 0, y, width, 1);
+            for(int x=0;x<width;x+=sampleStep) {
+                int p = row[x];
+                int r = (p >> 16) & 0xff, g = (p >> 8) & 0xff, b = p & 0xff;
+                int l = (299*r + 587*g + 114*b) / 1000;
+                int max = Math.max(r, Math.max(g, b));
+                if( l > 38 && l < 235 && max < 250 ) {
+                    sr += r; sg += g; sb += b;
+                    n++;
+                }
+            }
+        }
+        if( n < 16 )
+            return none;
+        double mr = sr/n, mg = sg/n, mb = sb/n;
+        if( mr < 1 || mg < 1 || mb < 1 )
+            return none;
+        double mean = (mr + mg + mb) / 3.0;
+        float[] g = new float[3];
+        double[] m = {mr, mg, mb};
+        for(int c=0;c<3;c++) {
+            double full = mean / m[c];
+            double v = 1.0 + amount * (full - 1.0);
+            g[c] = (float)Math.max(0.8, Math.min(1.25, v));
+        }
+        // preserve luminance
+        float lum = 0.299f*g[0] + 0.587f*g[1] + 0.114f*g[2];
+        for(int c=0;c<3;c++)
+            g[c] /= lum;
+        return g;
+    }
+
     static boolean isSkin(int r, int g, int b) {
         // classic RGB skin heuristic (Kovac et al.), works well enough for protecting colours
         return r > 95 && g > 40 && b > 20 && r > g && r > b && (r - Math.min(g, b)) > 15 && Math.abs(r - g) > 15;
@@ -287,6 +444,11 @@ public final class EnhanceCore {
      * Builds the tone mapper from a luminance histogram (256 bins) of the image.
      */
     public static ToneMapper buildToneMapper(long[] histogram, ToneParams params) {
+        return buildToneMapper(histogram, params, new float[]{1.0f, 1.0f, 1.0f});
+    }
+
+    /** As above, additionally applying the white balance gains (see {@link #estimateWhiteBalanceGains}). */
+    public static ToneMapper buildToneMapper(long[] histogram, ToneParams params, float[] wbGains) {
         long total = 0;
         for(long h : histogram)
             total += h;
@@ -339,7 +501,7 @@ public final class EnhanceCore {
             if( lut[i] < lut[i-1] )
                 lut[i] = lut[i-1];
         }
-        return new ToneMapper(params, lut);
+        return new ToneMapper(params, lut, wbGains);
     }
 
     /** Computes a luminance histogram, sampling every {@code sampleStep}-th pixel in each direction. */

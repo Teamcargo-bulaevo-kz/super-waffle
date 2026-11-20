@@ -213,4 +213,90 @@ public class EnhanceCoreTest {
         assertEquals(16, h[128]);
         assertEquals(128.0f, EnhanceCore.meanLuminance(h), 0.01f);
     }
+    /** Nearest neighbour x4 "super resolution" model. */
+    private static class NearestX4Model implements EnhanceCore.TileModel {
+        final int tile;
+        int calls;
+        NearestX4Model(int tile) { this.tile = tile; }
+        @Override public int getTileSize() { return tile; }
+        @Override public void run(float[] in, float[] out) {
+            calls++;
+            int ot = tile*4;
+            for(int y=0;y<ot;y++)
+                for(int x=0;x<ot;x++)
+                    for(int c=0;c<3;c++)
+                        out[(y*ot+x)*3+c] = in[((y/4)*tile+(x/4))*3+c];
+        }
+    }
+
+    @Test
+    public void superResolutionTilingWithDownscale() {
+        int[][] sizes = {{1,1},{9,5},{40,40},{77,53}};
+        for(int[] sz : sizes) {
+            EnhanceCore.IntImage lr = randomImage(sz[0], sz[1], sz[0]*7L + sz[1]);
+            EnhanceCore.IntImage dst = new EnhanceCore.IntImage(sz[0]*2, sz[1]*2);
+            NearestX4Model model = new NearestX4Model(24);
+            assertTrue(EnhanceCore.runTiledSR(lr, dst, model, 4, 2, 4, null, 1.0f, null));
+            assertEquals(EnhanceCore.countTiles(sz[0], sz[1], 24, 4), model.calls);
+            for(int y=0;y<dst.height;y++)
+                for(int x=0;x<dst.width;x++)
+                    assertEquals("size " + sz[0] + "x" + sz[1] + " at " + x + "," + y, lr.data[(y/2)*lr.width + x/2], dst.data[y*dst.width + x]);
+        }
+    }
+
+    @Test
+    public void superResolutionBlendsWithOriginal() {
+        EnhanceCore.IntImage lr = new EnhanceCore.IntImage(8, 8);
+        java.util.Arrays.fill(lr.data, 0xffc8c8c8); // 200
+        EnhanceCore.IntImage orig = new EnhanceCore.IntImage(16, 16);
+        java.util.Arrays.fill(orig.data, 0xff646464); // 100
+        EnhanceCore.IntImage dst = new EnhanceCore.IntImage(16, 16);
+        EnhanceCore.runTiledSR(lr, dst, new NearestX4Model(8), 4, 2, 2, orig, 0.5f, null);
+        assertEquals(150, dst.data[37] & 0xff);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void superResolutionRejectsWrongSize() {
+        EnhanceCore.runTiledSR(new EnhanceCore.IntImage(8, 8), new EnhanceCore.IntImage(15, 16), new NearestX4Model(8), 4, 2, 2, null, 1.0f, null);
+    }
+
+    @Test
+    public void whiteBalanceRemovesWarmCast() {
+        // tungsten-like orange cast on a grey scene
+        EnhanceCore.IntImage img = new EnhanceCore.IntImage(64, 64);
+        Random r = new Random(3);
+        for(int i=0;i<img.data.length;i++) {
+            int v = 60 + r.nextInt(120);
+            int red = Math.min(255, (int)(v*1.35)), green = v, blue = (int)(v*0.7);
+            img.data[i] = 0xff000000 | (red << 16) | (green << 8) | blue;
+        }
+        float[] full = EnhanceCore.estimateWhiteBalanceGains(img, 1, 1.0f);
+        assertTrue("red should be reduced", full[0] < 1.0f);
+        assertTrue("blue should be boosted", full[2] > 1.0f);
+        float[] half = EnhanceCore.estimateWhiteBalanceGains(img, 1, 0.5f);
+        assertTrue("partial correction is weaker", half[2] < full[2] && half[0] > full[0]);
+        float[] none = EnhanceCore.estimateWhiteBalanceGains(img, 1, 0.0f);
+        assertEquals(1.0f, none[0], 0.0f);
+        // apply partial correction: the cast should be reduced but not inverted
+        long[] hist = EnhanceCore.luminanceHistogram(img, 1);
+        EnhanceCore.ToneParams p = EnhanceCore.ToneParams.forScene(EnhanceCore.Scene.GENERAL, 0.0f);
+        EnhanceCore.ToneMapper m = EnhanceCore.buildToneMapper(hist, p, half);
+        int[] px = {0xff000000 | (135 << 16) | (100 << 8) | 70};
+        m.apply(px, 0, 1);
+        int rr = (px[0] >> 16) & 0xff, bb = px[0] & 0xff;
+        assertTrue("cast reduced: " + rr + " " + bb, rr - bb < 135 - 70);
+        assertTrue("still warm: " + rr + " " + bb, rr > bb);
+    }
+
+    @Test
+    public void whiteBalanceNeutralImageUnchanged() {
+        EnhanceCore.IntImage img = randomImage(50, 50, 9);
+        for(int i=0;i<img.data.length;i++) {
+            int v = img.data[i] & 0xff;
+            img.data[i] = 0xff000000 | (v << 16) | (v << 8) | v;
+        }
+        float[] g = EnhanceCore.estimateWhiteBalanceGains(img, 1, 1.0f);
+        for(float v : g)
+            assertEquals(1.0f, v, 0.01f);
+    }
 }

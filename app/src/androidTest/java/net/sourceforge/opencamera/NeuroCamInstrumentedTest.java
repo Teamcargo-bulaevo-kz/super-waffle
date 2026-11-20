@@ -1,7 +1,11 @@
 package net.sourceforge.opencamera;
 
 import android.Manifest;
+import android.content.ContentValues;
 import android.content.Intent;
+import android.net.Uri;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.util.Log;
@@ -13,6 +17,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.GrantPermissionRule;
 
+import net.sourceforge.opencamera.ai.EnhanceActivity;
 import net.sourceforge.opencamera.ai.EnhanceCore;
 import net.sourceforge.opencamera.ai.NeuroEnhancer;
 
@@ -23,6 +28,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.MethodSorters;
 
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -171,5 +177,69 @@ public class NeuroCamInstrumentedTest {
         assertTrue(result.neuralApplied);
         assertNull(result.error);
         assertTrue(result.bitmap.getWidth() > 0);
+    }
+    @Test
+    public void testE_GenerativeDetail() throws Exception {
+        Bitmap clean = loadTestImage();
+        int w = clean.getWidth(), h = clean.getHeight();
+        // soft, slightly noisy version: half resolution information only
+        Bitmap soft = Bitmap.createScaledBitmap(Bitmap.createScaledBitmap(clean, w/2, h/2, true), w, h, true);
+        soft = addNoise(soft, 4.0f);
+        NeuroEnhancer enhancer = NeuroEnhancer.getInstance(ApplicationProvider.getApplicationContext());
+        long t0 = System.currentTimeMillis();
+        Bitmap detail = enhancer.detailOnly(soft, true);
+        long time = System.currentTimeMillis() - t0;
+        double before = psnr(soft, clean);
+        double after = psnr(detail, clean);
+        Log.i(TAG, "AI_RESULT detail psnr soft=" + before + " detail=" + after + " time=" + time + "ms");
+        assertEquals(w, detail.getWidth());
+        assertEquals(h, detail.getHeight());
+        assertTrue("AI detail should restore the soft image: " + before + " -> " + after, after > before + 0.4);
+    }
+
+    @Test
+    public void testF_EnhanceActivityFromGallery() throws Exception {
+        // put a photo in the gallery, then "share" it to NeuroCam with AI detail on
+        android.content.Context context = ApplicationProvider.getApplicationContext();
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.DISPLAY_NAME, "neurocam_test_" + System.currentTimeMillis() + ".png");
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+        values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/NeuroCamTest");
+        Uri uri = context.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+        assertNotNull(uri);
+        try( OutputStream out = context.getContentResolver().openOutputStream(uri);
+             InputStream in = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("ai_test_astronaut.png") ) {
+            byte[] buf = new byte[65536];
+            int n;
+            while( (n = in.read(buf)) > 0 )
+                out.write(buf, 0, n);
+        }
+        EnhanceActivity.lastSavedUri = null;
+        EnhanceActivity.lastResult = null;
+        Intent intent = new Intent(Intent.ACTION_SEND);
+        intent.setClassName(context, EnhanceActivity.class.getName());
+        intent.setType("image/png");
+        intent.putExtra(Intent.EXTRA_STREAM, uri);
+        intent.putExtra(EnhanceActivity.EXTRA_AUTO_START, true);
+        intent.putExtra(EnhanceActivity.EXTRA_DETAIL, true);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        context.startActivity(intent);
+        long start = System.currentTimeMillis();
+        while( EnhanceActivity.lastResult == null ) {
+            assertTrue("gallery enhancement did not finish", System.currentTimeMillis() - start < 300000);
+            Thread.sleep(500);
+        }
+        NeuroEnhancer.Result result = EnhanceActivity.lastResult;
+        Log.i(TAG, "AI_RESULT gallery enhance scene=" + result.scene + " detail=" + result.detailApplied + " gpu=" + result.usedGpu + " time=" + result.timeMs + "ms saved=" + EnhanceActivity.lastSavedUri + " error=" + result.error);
+        assertTrue(result.detailApplied);
+        assertNull(result.error);
+        assertNotNull(EnhanceActivity.lastSavedUri);
+        BitmapFactory.Options o = new BitmapFactory.Options();
+        o.inJustDecodeBounds = true;
+        try( InputStream in = context.getContentResolver().openInputStream(EnhanceActivity.lastSavedUri) ) {
+            BitmapFactory.decodeStream(in, null, o);
+        }
+        assertEquals(512, o.outWidth);
+        assertEquals(512, o.outHeight);
     }
 }

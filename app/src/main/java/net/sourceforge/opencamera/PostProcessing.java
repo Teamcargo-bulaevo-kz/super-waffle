@@ -550,7 +550,9 @@ public class PostProcessing {
             case DOCUMENT: scene = main_activity.getString(R.string.ai_scene_document); break;
             default: scene = main_activity.getString(R.string.ai_scene_general); break;
         }
-        final String message = "AI \u2728 " + scene + (result.neuralApplied ? "" : " (" + main_activity.getString(R.string.ai_tone_only) + ")")
+        final String message = "AI \u2728 " + scene
+                + (result.detailApplied ? " + " + main_activity.getString(R.string.ai_detail_short) : "")
+                + (result.neuralApplied ? "" : " (" + main_activity.getString(R.string.ai_tone_only) + ")")
                 + String.format(java.util.Locale.US, " \u00b7 %.1f s", result.timeMs / 1000.0);
         try {
             main_activity.runOnUiThread(() -> {

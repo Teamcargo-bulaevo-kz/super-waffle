@@ -1143,4 +1143,26 @@
     <string name="ai_scene_night">Night</string>
     <string name="ai_scene_document">Document</string>
     <string name="ai_tone_only">tone only</string>
+    <string name="preference_ai_detail">AI detail (generative, slow)</string>
+    <string name="preference_ai_detail_summary">Real-ESRGAN neural network re-draws fine texture (fur, fabric, foliage) for a crisp \"4K-like\" look. Details are synthesised, not captured. Takes from ~20 s to a few minutes per photo, in the background.</string>
+    <string name="preference_ai_white_balance">AI white balance</string>
+    <string name="preference_ai_white_balance_summary">Partially removes colour casts such as the yellow tint of indoor lamps, keeping the mood of the scene.</string>
+    <string name="ai_enhance_title">AI enhance a photo</string>
+    <string name="ai_enhance_launcher">NeuroCam AI photo</string>
+    <string name="ai_enhance_share_label">Enhance with NeuroCam AI</string>
+    <string name="ai_enhance_pref_summary">Pick any photo from the gallery and improve it with AI. The original is kept.</string>
+    <string name="ai_enhance_pick">Choose a photo</string>
+    <string name="ai_enhance_detail">AI detail (draws fine texture)</string>
+    <string name="ai_enhance_start">Enhance</string>
+    <string name="ai_enhance_compare">Show original</string>
+    <string name="ai_enhance_show_result">Show result</string>
+    <string name="ai_enhance_loading">Loading…</string>
+    <string name="ai_enhance_ready">%1$d × %2$d. Press Enhance.</string>
+    <string name="ai_enhance_processing">AI is working…</string>
+    <string name="ai_enhance_progress">AI is working: %1$d%% (%2$d s)</string>
+    <string name="ai_enhance_done">Done in %1$.1f s (%2$s). Saved to Pictures/NeuroCam.</string>
+    <string name="ai_enhance_failed">Processing failed</string>
+    <string name="ai_enhance_failed_load">Could not open the image</string>
+    <string name="ai_enhance_note">The original photo is not changed; the result is saved as a new photo in Pictures/NeuroCam. AI detail generates plausible texture, which may differ from reality. Real-ESRGAN © Xintao Wang, BSD-3-Clause.</string>
+    <string name="ai_detail_short">detail</string>
 </resources>

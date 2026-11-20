@@ -980,4 +980,26 @@
     <string name="ai_scene_night">Ночь</string>
     <string name="ai_scene_document">Документ</string>
     <string name="ai_tone_only">только тон</string>
+    <string name="preference_ai_detail">ИИ-детализация (дорисовка, медленно)</string>
+    <string name="preference_ai_detail_summary">Нейросеть Real-ESRGAN дорисовывает мелкую текстуру (шерсть, ткань, листва) для чёткой картинки «как в 4K». Детали генерируются, а не снимаются. Занимает от ~20 с до нескольких минут на фото, в фоне.</string>
+    <string name="preference_ai_white_balance">ИИ-баланс белого</string>
+    <string name="preference_ai_white_balance_summary">Частично убирает цветные оттенки, например жёлтый от комнатных ламп, сохраняя атмосферу снимка.</string>
+    <string name="ai_enhance_title">ИИ-улучшение фото</string>
+    <string name="ai_enhance_launcher">NeuroCam ИИ-фото</string>
+    <string name="ai_enhance_share_label">Улучшить в NeuroCam ИИ</string>
+    <string name="ai_enhance_pref_summary">Выберите любое фото из галереи и улучшите его ИИ. Оригинал сохраняется.</string>
+    <string name="ai_enhance_pick">Выберите фото</string>
+    <string name="ai_enhance_detail">ИИ-детализация (дорисовать текстуру)</string>
+    <string name="ai_enhance_start">Улучшить</string>
+    <string name="ai_enhance_compare">Показать оригинал</string>
+    <string name="ai_enhance_show_result">Показать результат</string>
+    <string name="ai_enhance_loading">Загрузка…</string>
+    <string name="ai_enhance_ready">%1$d × %2$d. Нажмите «Улучшить».</string>
+    <string name="ai_enhance_processing">ИИ работает…</string>
+    <string name="ai_enhance_progress">ИИ работает: %1$d%% (%2$d с)</string>
+    <string name="ai_enhance_done">Готово за %1$.1f с (%2$s). Сохранено в Pictures/NeuroCam.</string>
+    <string name="ai_enhance_failed">Не удалось обработать</string>
+    <string name="ai_enhance_failed_load">Не удалось открыть изображение</string>
+    <string name="ai_enhance_note">Оригинал не изменяется, результат сохраняется новым фото в Pictures/NeuroCam. ИИ-детализация дорисовывает правдоподобную текстуру, которая может отличаться от реальности. Real-ESRGAN © Xintao Wang, BSD-3-Clause.</string>
+    <string name="ai_detail_short">детализация</string>
 </resources>
