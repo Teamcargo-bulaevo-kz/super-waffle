@@ -85,6 +85,9 @@ public class NeuroEnhancer {
         public String error;
     }
 
+    /** Most recent result, for tests. */
+    public static volatile Result lastResult;
+
     public static synchronized NeuroEnhancer getInstance(Context context) {
         if( instance == null )
             instance = new NeuroEnhancer(context.getApplicationContext());
@@ -223,8 +226,32 @@ public class NeuroEnhancer {
 
         result.bitmap = out;
         result.timeMs = SystemClock.elapsedRealtime() - t0;
+        lastResult = result;
         Log.i(TAG, "enhanced " + src.getWidth() + "x" + src.getHeight() + " in " + result.timeMs + "ms, gpu: " + result.usedGpu);
         return result;
+    }
+
+    /** Runs only the neural network stage (full strength) - used by tests to measure quality. */
+    public Bitmap neuralOnly(final Bitmap src, final boolean useGpu) throws Exception {
+        return executor.submit(() -> {
+            ensureInterpreter(useGpu);
+            Bitmap out = Bitmap.createBitmap(src.getWidth(), src.getHeight(), Bitmap.Config.ARGB_8888);
+            EnhanceCore.runTiled(new BitmapImage(src), new BitmapImage(out), new EnhanceCore.TileModel() {
+                @Override public int getTileSize() { return tileSize; }
+                @Override public void run(float[] input, float[] output) { runModel(input, output); }
+            }, TILE_MARGIN, 1.0f, null);
+            return out;
+        }).get(5, TimeUnit.MINUTES);
+    }
+
+    /** Whether the current interpreter runs on the GPU (valid after an enhancement). */
+    public boolean isUsingGpu() {
+        try {
+            return executor.submit(() -> interpreterUsesGpu).get();
+        }
+        catch(Exception e) {
+            return false;
+        }
     }
 
     static float neuralStrengthFor(EnhanceCore.Scene scene, float strength) {
