@@ -16,11 +16,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
+          cache: gradle
       - name: Build APK and run unit tests
         run: |
           chmod +x gradlew
-          ./gradlew --stacktrace assembleRelease testReleaseUnitTest -x lint
+          set -o pipefail
+          ./gradlew --no-daemon assembleRelease testReleaseUnitTest -x lint 2>&1 | tee build.log
       - name: Collect APK
         run: |
           mkdir -p out
@@ -30,8 +31,10 @@ jobs:
         with:
           name: NeuroCam-apk
           path: out/NeuroCam.apk
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: unit-test-report
-          path: app/build/reports/tests/
+      - name: Failure summary
+        if: failure()
+        run: |
+          echo "=== ERRORS ==="
+          grep -nE "error:|warning: \[|What went wrong|FAILED|Exception|expected|but was" build.log | head -80 || true
+          echo "=== TAIL ==="
+          tail -60 build.log || true
